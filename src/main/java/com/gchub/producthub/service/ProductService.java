@@ -1,11 +1,18 @@
 package com.gchub.producthub.service;
 
+import com.gchub.producthub.dto.PageResponse;
 import com.gchub.producthub.dto.ProductRequest;
+import com.gchub.producthub.dto.ProductResponse;
 import com.gchub.producthub.model.Product;
 import com.gchub.producthub.repository.ProductRepository;
+import com.gchub.producthub.repository.ProductSpecification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.math.BigDecimal;
 import java.util.Optional;
 
 @Service
@@ -17,15 +24,34 @@ public class ProductService {
         this.productRepository = productRepository;
     }
 
-    public List<Product> findAll() {
-        return productRepository.findAll();
+    public PageResponse<ProductResponse> findAll(
+            String name,
+            String status,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir
+    ) {
+        Sort sort = sortDir.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<ProductResponse> result = productRepository
+                .findAll(ProductSpecification.withFilters(name, status, minPrice, maxPrice), pageable)
+                .map(ProductResponse::from);
+
+        return PageResponse.from(result);
     }
 
-    public Optional<Product> findById(Long id) {
-        return productRepository.findById(id);
+    public Optional<ProductResponse> findById(Long id) {
+        return productRepository.findById(id).map(ProductResponse::from);
     }
 
-    public Product create(ProductRequest request) {
+    public ProductResponse create(ProductRequest request) {
         Product product = Product.builder()
                 .sku(request.sku())
                 .name(request.name())
@@ -34,17 +60,17 @@ public class ProductService {
                 .status("ACTIVE")
                 .stockQuantity(request.stockQuantity())
                 .build();
-        return productRepository.save(product);
+        return ProductResponse.from(productRepository.save(product));
     }
 
-    public Optional<Product> update(Long id, ProductRequest request) {
+    public Optional<ProductResponse> update(Long id, ProductRequest request) {
         return productRepository.findById(id).map(product -> {
             product.setName(request.name());
             product.setSku(request.sku());
             product.setDescription(request.description());
             product.setPrice(request.price());
             product.setStockQuantity(request.stockQuantity());
-            return productRepository.save(product);
+            return ProductResponse.from(productRepository.save(product));
         });
     }
 
